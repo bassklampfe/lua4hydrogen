@@ -18,7 +18,7 @@ I known, only a few people use lua, so here are the steps required for a standar
 
 NOTE: not all of these packages are required for these particular scripts, but this is my standard setup, which works almost everywhere.
 
-As IDE I prefer Zerobrane-Studio (an IDE written completely in lua itself).
+As IDE I prefer [Zerobrane-Studio](https://studio.zerobrane.com/) (an IDE written completely in lua itself).
 You can download and install manually or use the following commands:
 
     wget https://download.zerobrane.com/ZeroBraneStudioEduPack-2.01-linux.sh
@@ -32,11 +32,12 @@ Soundfonts I prefer:
 - **TimGM6mb.sf2** : Soundfont from MuseScore 1.3. Can be installed with  
   `sudo apt install timgm6mb-soundfont`
 - **gm.sf2** : (I renamed it to **windows7-gm.sf2**)   
-  not pretty but very clear in its sounds. Found e.g. here [Default Windows MIDI Soundfont](https://musical-artifacts.com/artifacts/713)
+  not pretty but very clear in its sounds. Found e.g. here [Default Windows MIDI Soundfont](https://musical-artifacts.com/artifacts/713)  
+   Copy to `/usr/share/sounds/sf2/` so it can be used by all software in your system.  
 - **sf_GMbank.sf2** : Soundfont from csound. Can be installed with  
   `sudo apt install csound-soundfont`
 
-Copy them to `/usr/share/sounds/sf2/` so they can be used by all software in your system.  
+
   
 Then run   
   
@@ -97,5 +98,6 @@ Well, Lua is the language I prefer because of its small overhead (the lua interp
   
 And Lua is fast. On my machine sf2_to_drumkit takes about 1/4 sec to convert 3 soundfiles to drumkits, midi_to_hydrogen takes typically << 1/10 sec for a midi file. Using luajit these times can even be half of the size.
 
+It should even be possible to integrate lua engine + midi_to_hydrogen into hydrogen with a few lines of code. I will try in one of the next weeks...
 
 
