@@ -572,8 +572,10 @@ end
 --local drumkit_path="/usr/share/hydrogen/data/drumkits/TR808EmulationKit"
 --local drumkit_path="/usr/share/hydrogen/data/drumkits/ForzeeStereo"
 --local drumkit_path="/usr/share/hydrogen/data/drumkits/TR808EmulationKit"
+
+local HOME=os.getenv("HOME")
 local drumkit_path=is_file("/usr/share/hydrogen/data/drumkits/"..opt_drumkit.."/drumkit.xml")
-or is_file("/home/joergen/.hydrogen/data/drumkits/"..opt_drumkit.."/drumkit.xml")
+or (HOME and is_file(HOME.."/.hydrogen/data/drumkits/"..opt_drumkit.."/drumkit.xml"))
 or error("No drumkit "..opt_drumkit)
 
 local drumkit=load_file(drumkit_path)
