@@ -158,7 +158,7 @@ local function data2xml(data)
 			local xml={dat[0]}
 			push(xml,sprintf("%s<%s>",ind,tag))
 			for i=2,#dat do
-				push(xml,data2xml(dat[i],i.." "))
+				push(xml,d2x(dat[i],ind.." "))
 			end
 			push(xml,sprintf("%s</%s>",ind,tag))
 			return join(xml,"\n")
