@@ -58,6 +58,15 @@ Preselected drumkit is TimGM6mb, you can override this by  passing an environmen
 
 `DRUMKIT="windows7-gm" luajit midi_to_hydrogen.lua` *midifile*
 
+# TODO list
+
+- [ ] More comments, more references :-)
+- [ ] Verify loop implementation is correct
+- [ ] Understand and implement envelope handling in sf2 and hydrogen
+- [ ] Review and eliminate dead code
+- [ ] identify drum samples in soundfonts which cannot be handled uptil now
+- [ ] make a C/C++ example, how to embed lua in hydrogen
+
 # History
   
 ## hydrogen  
