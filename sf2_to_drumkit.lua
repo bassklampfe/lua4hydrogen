@@ -682,17 +682,12 @@ local function save_drumkit(SF,drumkit_dir)
 				save_sample(drumkit_dir.."/"..dst_filename,sdta_smpl,sample)
 				did_save[dst_filename]=true
 			end
---~ 			if sample.achSampleName:match("TOM") then
---~ 				printf("%s : key=%s byOriginalKey=%s overridingRootKey=%s\n",
---~ 					sample.achSampleName,region.key_lo,sample.byOriginalKey,region.overridingRootKey )
---~ 			end
-			local scale=2
 			local layer=
 			{"layer",
 				{"filename",dst_filename},
 				{"startframe",0},
-				{"loopframe",(sample.dwStartloop-sample.dwStart)*scale},
-				{"endframe",(sample.dwEnd-sample.dwStart)*scale},
+				{"loopframe",sample.dwStartloop-sample.dwStart},
+				{"endframe",sample.dwEnd-sample.dwStart},
 				{"loops",region.sampleModes},
 				-- both bad
 				--{"pitch",sample.byOriginalKey},
