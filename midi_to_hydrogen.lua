@@ -864,8 +864,15 @@ local function sequenceList_to_noteList(bar)
 		push(noteList,
 			{"note",
 				{"position",position},
+				{"leadlag",0},
 				{"velocity",lround(velocity/128.0,0.01)},
+				{"pan",0},
+				{"pitch",0},
+				{"key","C0"},
+				{"length",-1},
 				{"instrument",instrument},
+				{"note_off",false},
+				{"probability",1},
 			})
 	end
 	return noteList
@@ -893,7 +900,7 @@ local function main(in_file,out_file)
 	--
 	local BPMTimeLine={"BPMTimeLine"}
 	local bar_bpm={}
-
+	local song_bpm
 	local signaturea,signatureb=4,4
 	local function get_barlength()return (midi_data.tick*4)*(signaturea/signatureb) end
 	local barlength=get_barlength()
@@ -914,6 +921,7 @@ local function main(in_file,out_file)
 		end
 
 		if event.bpm then
+			song_bpm=song_bpm or event.bpm
 			local newBPM=bar_bpm[barnumber]
 			if newBPM then
 				newBPM[3][2]=event.bpm
@@ -942,6 +950,7 @@ local function main(in_file,out_file)
 	local sequencePatternMap={}
 	local patternSequence={"patternSequence"}
 	local patternList={"patternList"}
+	local virtualPatternList={"virtualPatternList"}
 	for _,bar in ipairs(bars) do
 		if #bar>0 then
 			local sequenceMagic=get_sequence_magic(bar)
@@ -953,6 +962,8 @@ local function main(in_file,out_file)
 				push(patternList,
 					{"pattern",
 						{"name",patternID},
+						{"info",""},
+						{"category","unknown"},
 						{"size",PATTERNLENGTH*bar.a/bar.b},
 						{"denominator",bar.b},
 						noteList,
@@ -981,12 +992,21 @@ local function main(in_file,out_file)
 	{
 		[0]='<?xml version="1.0" encoding="UTF-8"?>',
 		"song",
+		{"bpm",song_bpm or 120},
+		{"volume",0.5},
+		{"isMuted",false},
+		{"metronomeVolume",0.5},
+		{"name","Untitled Song"},
+		{"author","Unknown Author"},
+		{"notes",""},
+		{"license","undefined license"},
 		{"loopEnabled",false},
 		{"isPatternEditorLocked",true},
 		{"mode","song"},
 		componentList,
 		instrumentList,
 		patternList,
+		virtualPatternList,
 		patternSequence,
 		BPMTimeLine,
 	}
