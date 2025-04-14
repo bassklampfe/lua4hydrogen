@@ -1,11 +1,13 @@
 # lua4hydrogen
 Lua scripts to create hydrogen drumkits from soundfonts and hydrogen songs from midi
+  
+**NOTE:** This is currently targeting [hydrogen 1.2.4](https://github.com/hydrogen-music/hydrogen/releases/tag/1.2.4). Other versions may work or not.
 
 # WHAT IS THIS ??
 
 Two lua scripts
 
-- **midi_to_hydrogen** : convert a midi file into a hydrogen song
+- **midi_to_hydrogen** : convert a midi file into a hydrogen song based on a selected drumkit
 - **sf2_to_drumkit** : convert a sound font into a hydrogen drumkit
 
 ## How to install
