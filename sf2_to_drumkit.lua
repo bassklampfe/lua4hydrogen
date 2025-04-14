@@ -51,6 +51,16 @@ local function hex(bytes)
 end
 
 
+local function lround(val)
+	if val<0 then return -lround(-val) end
+	return math.floor(val+0.5)
+end
+
+--
+-- read a fs2 file
+--
+-- based on SFSPEC21.PDF (
+
 local function read_soundfont(sf_file)
 	printf("read_soundfont(%q)\n",sf_file)
 	local fd=assert(io.open(sf_file,"rb"))
@@ -98,11 +108,21 @@ local function read_soundfont(sf_file)
 	local function SFGenerator()
 		return get_word()
 	end
-
-	local function SFSampleLink()
+	local eSampleType=
+	{
+		[0]="none",
+		[1]="monoSample",
+		[2]="rightSample",
+		[4]="leftSample",
+		[8]="linkedSample",
+		[32769]="RomMonoSample",
+		[32770]="RomRightSample",
+		[32772]="RomLeftSample",
+		[32776]="RomLinkMonoSample",
+	}
+	local function sfSampleType()
 		local w=get_word()
-		if w==1 then return "Mono Sample" end
-		return w
+		return eSampleType[w] or error("bad sfSampleType "..w)
 	end
 
 	-- 8.2 Modulator Source Enumerators
@@ -263,7 +283,7 @@ local function read_soundfont(sf_file)
 	--]]
 	rec_func.shdr=function()
 		local shdr={}
-		shdr.Depth=16 -- WHERE FROM ???
+		shdr.Depth=16 -- this is the default except when sm24 chunk is available (ignored)
 		shdr.achSampleName=get_name(20) -- achSampleName
 		shdr.dwStart=get_long()
 		shdr.dwEnd=get_long()
@@ -273,7 +293,7 @@ local function read_soundfont(sf_file)
 		shdr.byOriginalKey=get_byte() --byOriginalKey
 		shdr.chCorrection=get_byte()  --get_char()
 		shdr.wSampleLink=get_word()
-		shdr.sfSampleType=SFSampleLink()
+		shdr.sfSampleType=sfSampleType()
 		return shdr
 	end
 
@@ -314,12 +334,12 @@ local function read_soundfont(sf_file)
 		local list_id=get_id() 		Expect(list_id,"LIST")
 		local list_size=get_long() 	--printf("%q %d bytes\n",list_id,list_size)
 		list.size=list_size
-		local info_id=get_id() 		--printf("< %s >\n",info_id) Expect(info_id,need_id)
+		local info_id=get_id() Expect(info_id,need_id)		--printf("< %s >\n",info_id)
 		local have=4
 		while have<list_size do
 			local id=get_id()
 			local sz=get_long() 	--printf("%4d:%4d:%q %5d bytes:",have,list_size,id,sz)
-			if id=="smpl" then
+			if id=="smpl" then	-- "16 bit Linearly Coded Digital Audio Data"
 				list[id]=fd:read(sz)
 			else
 				local func=rec_func[id]
@@ -366,8 +386,8 @@ local function read_soundfont(sf_file)
 
 	local sf_generators=
 	{
-		[0]="startAddrsOffset",
-		"endAddrsOffset",
+		[0]="startAddrsOffset", -- alway 0?
+		"endAddrsOffset",		-- alway 0?
 		"startloopAddrsOffset",
 		"endloopAddrsOffset",
 		"startAddrsCoarseOffset",
@@ -436,9 +456,11 @@ local function read_soundfont(sf_file)
 		end
 		reg[GenOper]=pgen.genAmount
 	end
-
+	local file_size=fd:seek('end',0)
+	fd:seek('set',0)
 	local riff_id=get_id() 		Expect(riff_id,"RIFF")
 	local riff_size=get_long() --	printf("%q %d bytes\n",riff_id,riff_size)
+	if riff_size~=file_size-8 then Error("%s corrupted riff_size=%d file_size=%d",riff_size,file_size) end
 	local sfbk_id=get_id() 		Expect(sfbk_id,"sfbk")
 	-- version
 	DoList('INFO')
@@ -576,16 +598,19 @@ local function save_sample(path,sdta_smpl,sample)
 	local End=sample.dwEnd
 	local data=sdta_smpl:sub(Start*2+1,End*2)
 
+	local sampleRate=sample.dwSampleRate
+	local sampleBytes=sample.Depth/8
+	local channels=1
 	local fmt=join
 	{
 		'fmt ',
-		uint32(16),	-- block size
-		uint16(1),	-- format PCM
-		uint16(1),	-- number channels
-		uint32(sample.dwSampleRate),
-		uint32(sample.dwSampleRate*2),	--  Number of bytes to read per second (Frequency * BytePerBloc).
-		uint16(1*16/8),	--Number of bytes per block (NbrChannels * BitsPerSample / 8).
-		uint16(16), 	--number of bits per sample
+		uint32(16),						-- block size
+		uint16(1),						-- format PCM
+		uint16(channels),				-- number channels
+		uint32(sampleRate),
+		uint32(sampleRate*sampleBytes),	--  Number of bytes to read per second (Frequency * BytePerBloc).
+		uint16(channels*sampleBytes),	--Number of bytes per block (NbrChannels * BitsPerSample / 8).
+		uint16(sampleBytes*8), 			--number of bits per sample
 	}
 
 	local RIFF=join
@@ -616,7 +641,14 @@ local function data2xml(data)
 			return sprintf("%s<%s>%s</%s>",ind,tag,tostring(dat[2]),tag)
 		else
 			local xml={dat[0]}
-			push(xml,sprintf("%s<%s>",ind,tag))
+			local attr={tag}
+			for k,v in pairs(dat) do
+				if type(k)=="string" then
+					push(attr,k..'="'..v..'"')
+				end
+			end
+
+			push(xml,sprintf("%s<%s>",ind,join(attr,' ')))
 			for i=2,#dat do
 				push(xml,d2x(dat[i],ind.." "))
 			end
@@ -640,23 +672,9 @@ local function save_drumkit(SF,drumkit_dir)
 	local pdta_inst=pdta.inst or error("no pdta.inst")
 	local pdta_shdr=pdta.shdr or error("no pdta.shdr")
 
-	local function is_percussion(inst)
-		local regions=inst.regions
-		for r=0,#regions do
-			local region=regions[r]
-			if not (region.key_lo and region.key_hi and region.key_lo==region.key_hi) then
-				return false
-			end
-		end
-		return true
-	end
-
 	local function find_instrument(name)
 		for i=0,#pdta_inst-1 do
 			local inst=pdta_inst[i]
---~ 			if is_percussion(inst) then
---~ 				printf("PERC???[%d] %q\n",#inst.regions,inst.InstrumentName)
---~ 			end
 			if inst.InstrumentName==name then
 				return inst
 			end
@@ -682,38 +700,79 @@ local function save_drumkit(SF,drumkit_dir)
 				save_sample(drumkit_dir.."/"..dst_filename,sdta_smpl,sample)
 				did_save[dst_filename]=true
 			end
+
+			local startframe=0
+			local loopframe=sample.dwStartloop-sample.dwStart
+			local endframe=sample.dwEnd-sample.dwStart
+			local loops=region.sampleModes or 0
+			local frame_width=841
+			local frame_height=91;
 			local layer=
 			{"layer",
 				{"filename",dst_filename},
-				{"startframe",0},
-				{"loopframe",sample.dwStartloop-sample.dwStart},
-				{"endframe",sample.dwEnd-sample.dwStart},
-				{"loops",region.sampleModes},
-				-- both bad
-				--{"pitch",sample.byOriginalKey},
-				--{"pitch",region.key_lo},
+				{"min",0},
+				{"max",1},
+				{"gain",1},
+				{"pitch",0},
+				{"ismodified",true},
+				{"smode","forward"},
+				{"startframe",startframe},
+				{"loopframe",loopframe},
+				{"loops",loops},
+				{"endframe",endframe},
+				{"userubber",0},
+				{"rubberdivider",0},
+				{"rubberCsettings",1},
+				{"rubberPitch",0},
+				{"volume",{"volume-position",0},{"volume-value",0}},
+				{"volume",{"volume-position",frame_width},{"volume-value",frame_height}},
+				{"pan",{"pan-position",0},{"pan-value",lround(frame_height/2)}},
+				{"pan",{"pan-position",frame_width},{"pan-value",lround(frame_height/2)}},
 			}
 
-			--local release=region.releaseVolEnv
-			--local Attack=region.attackVolEnv
+			local pan_L=1
+			local pan_R=1
+			local Release=1000
+			local Attack=0
 
-			local instrumentComponent={"instrumentComponent",layer}
+			local instrumentComponent=
+			{"instrumentComponent",
+				{"component_id",0},
+				{"gain",1},
+				layer
+			}
 			local instrument=
 			{"instrument",
-				{"id",r+1},
+				{"id",r},
 				{"name",sprintf("%s (%d)",sample.achSampleName,region.key_lo)},
-				{"midiOutNote",region.key_lo},
+				{"volume",1},
+				{"isMuted",false},
+				{"isSoloed",false},
+				{"pan_L",pan_L},
+				{"pan_R",pan_R},
 				{"pitchOffset",region.key_lo-(region.overridingRootKey or sample.byOriginalKey)},
-				--{"pitchOffset",region.key_lo-(region.overridingRootKey or 60)},
-				--{"pitchOffset",60-(region.overridingRootKey or 60)},
-				{"Attack",0},
+				{"randomPitchFactor",0},
+				{"gain",1},
+				{"applyVelocity",true},
+				{"filterActive",true},
+				{"filterCutoff",1},
+				{"filterResonance",0},
+				{"Attack",Attack},
 				{"Decay",0},
 				{"Sustain",1},
-				{"Release",1000},
-				--{"Decay",Decay},
-				--{"Hold",Hold},
-				--{"Release",Release},
-				--{"Sustain",Sustain},
+				{"Release",Release},
+				{"muteGroup",-1},
+				{"midiOutChannel",-1},
+				{"midiOutNote",region.key_lo},
+				{"isStopNote",region.sampleModes==0},
+				{"sampleSelectionAlgo","VELOCITY"},
+				{"isHihat",-1},
+				{"lower_cc",0},
+				{"higher_cc",127},
+				{"FX1Level",0},
+				{"FX2Level",0},
+				{"FX3Level",0},
+				{"FX4Level",0},
 				instrumentComponent
 			}
 			table.insert(instrumentList,instrument)
@@ -727,11 +786,30 @@ local function save_drumkit(SF,drumkit_dir)
 	-- IENG="Roland Corporation",INAM="gm.sf2",
 	-- ISFT="dls_cnv v0.27y",ifil="02000100",size=160}
 
+	local drumkitComponent=
+	{"drumkitComponent",
+		{"id",0},
+		{"name","Main"},
+		{"volume",1},
+	}
+
+	local componentList=
+	{"componentList",
+		drumkitComponent
+	}
+
 	local drumkit_info=
-	{"drumkit_info",
+	{[0]=[[<?xml version="1.0" encoding="UTF-8"?>]],
+		"drumkit_info",
+		xmlns="http://www.hydrogen-music.org/drumkit",
+		["xmlns:xsi"]="http://www.w3.org/2001/XMLSchema-instance",
 		{"name",drumkit_name},
+		{"author","sf2_to_drumkit"},
 		{"info",sprintf("Created from %s",INFO.INAM)},
-		{"license",INFO.ICMT},
+		{"license",INFO.ICMT or "unknown"},
+		{"image",""},
+		{"imageLicense",""},
+		componentList,
 		instrumentList}
 	--save_data("drumkit.data",drumkit_info)
 	printf("save_file(%q)\n",drumkit_dir.."/drumkit.xml")
