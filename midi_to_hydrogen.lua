@@ -22,8 +22,7 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 --]]
-
-require"strict"
+pcall(require,"strict")
 local sbyte=string.byte
 local schar=string.char
 local find=string.find
@@ -800,7 +799,7 @@ local function filter_midi_events(midi_data)
 	--Midi drum channel
 	local drumChannel=10
 	local hydrogen_events={}
-	printf("tick=%s\n",midi_data.tick)
+	local count_drum_events=0
 	--
 	-- STEP 1:
 	-- process the midi file read in
@@ -821,6 +820,7 @@ local function filter_midi_events(midi_data)
 					local tick=lround(t/f_tick)*f_tick
 
 					push(hydrogen_events,{t=tick,instrument=instrument,velo=velo})
+					count_drum_events=count_drum_events+1
 				else
 					unknown_midis[pitch]=(unknown_midis[pitch] or 0)+1
 				end
@@ -838,9 +838,11 @@ local function filter_midi_events(midi_data)
 			end
 		end
 	end
-	-- sort by time
-	insertsort(hydrogen_events,function(a,b)return a.t<b.t end)
-	return hydrogen_events
+	if count_drum_events>0 then
+		-- sort by time
+		insertsort(hydrogen_events,function(a,b)return a.t<b.t end)
+		return hydrogen_events
+	end
 end
 
 
@@ -878,23 +880,23 @@ local function sequenceList_to_noteList(bar)
 	return noteList
 end
 
-
-local function main(in_file,out_file)
+local function midi_to_hydrogen(midi_file)
 
 
 	local PATTERNLENGTH=192
 	--
 	-- read the midi file
 	--
-	local midi_data=read_midi(in_file,1)
+	local midi_data=read_midi(midi_file,1)
 
 
 	--
 	-- filter relevant events
 	--
 	local hydrogen_events=filter_midi_events(midi_data)
-
-
+	if not hydrogen_events then
+		error("no drum events in "..midi_file,0)
+	end
 	--
 	-- sort into bars and a timeline
 	--
@@ -992,59 +994,53 @@ local function main(in_file,out_file)
 	{
 		[0]='<?xml version="1.0" encoding="UTF-8"?>',
 		"song",
+		{"version","1.2.4"},
 		{"bpm",song_bpm or 120},
 		{"volume",0.5},
 		{"isMuted",false},
 		{"metronomeVolume",0.5},
 		{"name","Untitled Song"},
 		{"author","Unknown Author"},
-		{"notes",""},
+		{"notes","..."},
 		{"license","undefined license"},
 		{"loopEnabled",false},
+		{"patternModeMode",true},
+		{"playbackTrackFilename",""},
+		{"playbackTrackEnabled",false},
+		{"playbackTrackVolume",0},
+		{"action_mode",0},
 		{"isPatternEditorLocked",true},
 		{"mode","song"},
+		{"pan_law_type","RATIO_STRAIGHT_POLYGONAL"},
+		{"pan_law_k_norm",1.33333},
+		{"humanize_time",0},
+		{"humanize_velocity",0},
+		{"swing_factor",0},
+
 		componentList,
 		instrumentList,
 		patternList,
 		virtualPatternList,
 		patternSequence,
+		{"ladspa"},
 		BPMTimeLine,
+		{"timeLineTag"},
 	}
-
-
 	local xml=data2xml(song)
-
-	save_file(out_file,xml)
-	if opt_debug then
-		if next(unknown_midis) then
-			local res={}
-			for k,v in pairs(unknown_midis) do
-				push(res,sprintf("%3d : %d x\n",k,v))
-			end
-			table.sort(res)
-			printf("unknown=%s\n",join(res))
-			save_file(out_file:gsub("%.%w+$","").." {unknown}.txt",join(res))
-		end
-		if next(midi_stat) then
-			local res={}
-			for k,v in pairs(midi_stat) do
-				push(res,sprintf("%3d : %d x\n",k,v))
-			end
-			table.sort(res)
-			save_file(out_file:gsub("%.%w+$","").." {stat}.txt",join(res))
-		end
-	end
+	return xml,song
 end
---##
---## MAIN CODE
---##
-local in_file=arg[1] or error("no infile given")
-local out_file=arg[2]
-if not out_file then out_file=in_file:gsub("%.%w+$","")..".h2song" end
 
-main(in_file,out_file)
+_G.midi_to_hydrogen=midi_to_hydrogen
 
-print "Done !"
-
---]]
---]==]
+--
+-- called from commandline ?
+--
+if rawget(_G,"arg") then
+	local in_file=arg[1] or error("no infile given")
+	local out_file=arg[2]
+	if not out_file then out_file=in_file:gsub("%.%w+$","")..".h2song" end
+	local hydrogen_h2song=midi_to_hydrogen(in_file)
+	save_file(out_file,hydrogen_h2song)
+	save_file(out_file.."-base",hydrogen_h2song)
+	print "Done !"
+end
