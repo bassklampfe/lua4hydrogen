@@ -86,7 +86,6 @@ end
 -- @tparam string path path of file to check
 ------------------------------------------------------------
 local function is_file(path)
-	printf("load_file(%q)\n",path)
 	local fd,err=io.open(path,"rb")
 	if not fd then return nil,err end
 	fd:close()
@@ -101,7 +100,6 @@ end
 -- @treturn string content of file
 ------------------------------------------------------------
 local function load_file(path)
-	printf("load_file(%q)\n",path)
 	local fd,err=io.open(path,"rb")
 	if not fd then error(err) end
 	local data=fd:read("*all")
@@ -568,7 +566,6 @@ local function read_midi(midi_path)
 	end
 
 
-	printf("read_midi(%q)\n",midi_path)
 	local midi_fd=assert(io.open(midi_path,"rb"))
 	local function Read(n) return midi_fd:read(n) or Error("read(%s)failed",midi_path) end
 	local midi=decode_midi(Read)
@@ -602,14 +599,12 @@ or (HOME and is_file(HOME.."/.hydrogen/data/drumkits/"..opt_drumkit.."/drumkit.x
 or error("No drumkit "..opt_drumkit)
 
 local drumkit=load_file(drumkit_path)
-local drumkit_data=xml2data(drumkit)
+local drumkit_data=assert(xml2data(drumkit))
 
 --
 -- extract the name
 --
 local drumkit_name=drumkit_data:cdata("name")
-printf("drumkit_name=%q\n",drumkit_name)
---os.exit()
 local componentList=drumkit_data:element("componentList")
 --
 -- extract the instrumentlist
