@@ -2,9 +2,9 @@
 #include <QString>
 #include <lua.hpp>
 
-
-QString MidiToHydrogen(const QString&midi_to_hydrogen_lua,const QString&midi_file)
+QString MidiToHydrogen(const QString&midi_file)
 {
+#include "midi_to_hydrogen.lua-hh"
 	int status;
 	//
 	// open a lua state
@@ -15,7 +15,7 @@ QString MidiToHydrogen(const QString&midi_to_hydrogen_lua,const QString&midi_fil
 	//
 	// load the script
 	//
-	status=luaL_loadfile(L, midi_to_hydrogen_lua.toStdString().c_str());
+	status=luaL_loadstring(L, midi_to_hydrogen_script);
 	if(status!=0)
 	{
 		QString message=lua_tostring(L,-1);
@@ -58,7 +58,7 @@ int main(int argc,const char*argv[])
 	{
 		try
 		{
-			QString h2song=MidiToHydrogen("../midi_to_hydrogen.lua",argv[n]);
+			QString h2song=MidiToHydrogen(argv[n]);
 			std::cout<<h2song.toStdString()<<"\n";
 		}
 		catch(const QString msg)
