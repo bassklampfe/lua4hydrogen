@@ -141,6 +141,11 @@ end
 -- @tparam table data xml data, [1] is the tag
 ------------------------------------------------------------
 local function data2xml(data)
+
+	local function qxml(t)
+		return t:gsub("[<>&;]",function(c) return sprintf("&#%d;",c:byte())end)
+	end
+
 	local function d2x(dat,ind)
 
 		if dat==nil then return "" end
@@ -150,7 +155,7 @@ local function data2xml(data)
 			return sprintf("%s<%s/>",ind,tag)
 		end
 		if #dat==2 and type(dat[2])~="table" then
-			return sprintf("%s<%s>%s</%s>",ind,tag,tostring(dat[2]),tag)
+			return sprintf("%s<%s>%s</%s>",ind,tag,qxml(tostring(dat[2])),tag)
 		else
 			local xml={dat[0]}
 			push(xml,sprintf("%s<%s>",ind,tag))
@@ -597,7 +602,7 @@ local HOME=os.getenv("HOME")
 local drumkit_path=is_file("/usr/share/hydrogen/data/drumkits/"..opt_drumkit.."/drumkit.xml")
 or (HOME and is_file(HOME.."/.hydrogen/data/drumkits/"..opt_drumkit.."/drumkit.xml"))
 or error("No drumkit "..opt_drumkit)
-
+local drumkitPath=drumkit_path:match("(.*)/")
 local drumkit=load_file(drumkit_path)
 local drumkit_data=assert(xml2data(drumkit))
 
@@ -614,6 +619,7 @@ local instrumentList=drumkit_data:element("instrumentList") or error("no instrum
 for instrument in instrumentList:elements() do
 	local _,idx=instrument:element("name")
 	push(instrument,idx+1,{"drumkit",drumkit_name})
+	push(instrument,idx+1,{"drumkitPath",drumkitPath})
 end
 --instrumentlist=instrumentlist:gsub("</name>\n%s+<volume>","</name>\n   <drumkit>"..drumkit_name.."</drumkit>\n  <volume>")
 
@@ -883,7 +889,7 @@ local function midi_to_hydrogen(midi_file)
 	-- read the midi file
 	--
 	local midi_data=read_midi(midi_file,1)
-
+	local midi_name=midi_file:gsub(".*/","")
 
 	--
 	-- filter relevant events
@@ -996,7 +1002,7 @@ local function midi_to_hydrogen(midi_file)
 		{"metronomeVolume",0.5},
 		{"name","Untitled Song"},
 		{"author","Unknown Author"},
-		{"notes","..."},
+		{"notes","created from "..midi_name},
 		{"license","undefined license"},
 		{"loopEnabled",false},
 		{"patternModeMode",true},
