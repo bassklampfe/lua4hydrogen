@@ -42,7 +42,7 @@ end
 ------------------------------------------------------------
 local opt_drumkit=os.getenv("DRUMKIT") or "TimGM6mb"
 local opt_quant_velocity=4
-local opt_quant_tick=32
+local opt_quant_tick=64
 local opt_debug=false	-- create debug files
 
 local st={['\n']='\\n',['\r']='\\r',['\t']='\\t',['\"']='\\"',['\\']='\\\\'}
@@ -806,8 +806,10 @@ local function filter_midi_events(midi_data)
 	-- process the midi file read in
 	-- filter relevant events
 	--
+	local signaturea,signatureb=4,4
+	local f_tick=(midi_data.tick*4)*(signaturea/signatureb)/opt_quant_tick
+
 	local f_velo=(127/opt_quant_velocity);
-	local f_tick=(midi_data.tick/opt_quant_tick);
 	for _,midi_track in ipairs(midi_data.tracks) do
 		for _,midi_event in ipairs(midi_track) do
 			local t,e=unpack(midi_event)
@@ -836,6 +838,8 @@ local function filter_midi_events(midi_data)
 				local b=math.ldexp(1,midi_event.b2)
 				--printf("%s:time_signature(%s,%s){%s,%s,%s,%s}\n",t,a,b,event.b1,event.b2,event.b3,event.b4)
 				push(hydrogen_events,{t=t,a=a,b=b})
+				signaturea,signatureb=a,b
+				f_tick=(midi_data.tick*4)*(signaturea/signatureb)/opt_quant_tick
 			end
 		end
 	end
