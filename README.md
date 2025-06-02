@@ -14,7 +14,7 @@ Two lua scripts
 
 I known, only a few people use lua, so here are the steps required for a standard ubuntu to install everything needed to run the scripts:
 
-    sudo apt install lua5.1 luajit lua-file-system lua5.1-doc lua-socket lua-sec
+    sudo apt install lua5.1 luajit lua-filesystem lua5.1-doc lua-socket lua-sec
     sudo mkdir -p /usr/local/share/lua/5.1
     sudo cp /usr/share/doc/lua5.1-doc/etc/strict.lua /usr/local/share/lua/5.1/
 
